@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import kv, gamma
+import math
 
 
 def predict_squared_exponential_kernel(train_x, train_y, test_x, l, sigma_f, noise_sigma):
@@ -17,12 +18,36 @@ def predict_squared_exponential_kernel(train_x, train_y, test_x, l, sigma_f, noi
         Note: only return the variances, not the covariances
               i.e. the diagonal of the covariance matrix
     """
-    # TODO: fill in the code
-    M = test_x.shape[0]
-    mean = np.zeros(M)
-    variance = np.zeros(M)
-    return mean, variance
 
+
+    K11 = get_pce_kernel(l, sigma_f, train_x, train_x)
+    K12 = get_pce_kernel(l, sigma_f, train_x, test_x)
+    K21 = get_pce_kernel(l, sigma_f, test_x, train_x)
+    K22 = get_pce_kernel(l, sigma_f, test_x, test_x)
+
+    inverted_val= np.linalg.inv(K11 + np.eye(K11.shape[0])*noise_sigma)
+    mean= np.matmul(K21, np.matmul(inverted_val, train_y))
+    variance = K22 - np.matmul(np.matmul(K21, inverted_val), K12)
+    return mean, np.diagonal(variance)
+
+def get_pce_kernel(l, sigma_f, X, Y):
+    kernel = np.zeros((X.shape[0], Y.shape[0]))
+    for iter1, i in enumerate(X):
+        for iter2, j in enumerate(Y):
+            kernel[iter1, iter2] = sigma_f * np.exp((np.linalg.norm(i - j) ** 2) / (-2 * l ** 2))
+    return kernel
+
+def get_matern_kernel(nu, l, X, Y):
+    kernel = np.zeros((X.shape[0], Y.shape[0]))
+    v = 0.3
+    gam = gamma(v-1)
+    bess = kv(1, v)
+    for iter1, i in enumerate(X):
+        for iter2, j in enumerate(Y):
+            r = np.abs(i-j)
+            interm = (math.sqrt(2*v)*r)/l
+            kernel[iter1, iter2] = ((2**(1-v))*(interm**v) *bess *(interm))/gam
+    return kernel
 
 def predict_matern_kernel(train_x, train_y, test_x, nu, l, noise_sigma):
     """
@@ -39,12 +64,15 @@ def predict_matern_kernel(train_x, train_y, test_x, nu, l, noise_sigma):
         Note: only return the variances, not the covariances
               i.e. the diagonal of the covariance matrix
     """
-    # TODO: fill in the code
-    M = test_x.shape[0]
-    mean = np.zeros(M)
-    variance = np.zeros(M)
-    return mean, variance
+    K11 = get_matern_kernel(nu, l, train_x, train_x)
+    K12 = get_matern_kernel(nu, l, train_x, test_x)
+    K21 = get_matern_kernel(nu, l, test_x, train_x)
+    K22 = get_matern_kernel(nu, l, test_x, test_x)
 
+    inverted_val = np.linalg.inv(K11 + np.eye(K11.shape[0]) * noise_sigma)
+    mean = np.matmul(K21, np.matmul(inverted_val, train_y))
+    variance = K22 - np.matmul(np.matmul(K21, inverted_val), K12)
+    return mean, np.diagonal(variance)
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
