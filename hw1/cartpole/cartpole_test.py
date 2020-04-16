@@ -65,6 +65,42 @@ def make_training_data(state_traj, action_traj, delta_state_traj):
     y = delta_state_traj
     return x, y
 
+def get_pce_kernel(X, X_prime):
+    #kernel = np.zeros((X.shape[0], X_prime.shape[0], X.shape[1]))
+    for iter1, i in enumerate(X):
+        for iter2, j in enumerate(Y):
+            kernel[iter1, iter2, :] = sigma_f * np.exp((np.linalg.norm(X-X_prime - j) ** 2) / (-2 * l ** 2))
+    return kernel
+
+def predict_squared_exponential_kernel(train_x, train_y):
+    """
+    :param train_x: a numpy array of size [N]
+    :param train_y: a numpy array of size [N]
+    :param test_x:  a numpy array of size [M]
+    :param l: length parameter of kernel. float
+    :param sigma_f: scale parameter of kernel. float
+    :param noise_sigma: noise standard deviation. float
+
+    :return: mean: a numpy array of size [M]
+             variance: a numpy array of size [M]
+
+        Note: only return the variances, not the covariances
+              i.e. the diagonal of the covariance matrix
+    """
+    l=1;
+    sigma_f= 1.0
+    noise_sigma= 0.35
+
+    K11 = get_pce_kernel(l, sigma_f, train_x, train_x)
+    K12 = get_pce_kernel(l, sigma_f, train_x, test_x)
+    K21 = get_pce_kernel(l, sigma_f, test_x, train_x)
+    K22 = get_pce_kernel(l, sigma_f, test_x, test_x)
+
+    inverted_val= np.linalg.inv(K11 + np.eye(K11.shape[0])*noise_sigma)
+    mean= np.matmul(K21, np.matmul(inverted_val, train_y))
+    variance = K22 - np.matmul(np.matmul(K21, inverted_val), K12)
+    return mean, np.diagonal(variance)
+
 def predict_gp(train_x, train_y, init_state, action_traj):
     """
     Let M be the number of training examples
@@ -102,6 +138,9 @@ def predict_gp(train_x, train_y, init_state, action_traj):
     """
 
     # TODO: Compute these variables.
+    mean, variance = predict_squared_exponential_kernel(train_x, train_y)
+    fr
+
     pred_gp_mean = np.zeros((NUM_DATAPOINTS_PER_EPOCH, 4))
     pred_gp_variance = np.zeros((NUM_DATAPOINTS_PER_EPOCH, 4))
     rollout_gp = np.zeros((NUM_DATAPOINTS_PER_EPOCH, 4))
@@ -129,7 +168,9 @@ if __name__ == '__main__':
     # Initial training data used to train GP for the first epoch
     init_state = np.array([0.01, 0.01, np.pi * 0.5, 0.1]) * rng.randn(4)
     ts, state_traj, action_traj = sim_rollout(sim, random_policy, NUM_DATAPOINTS_PER_EPOCH, DELTA_T, init_state)
+
     delta_state_traj = state_traj[1:] - state_traj[:-1]
+
     train_x, train_y = make_training_data(state_traj[:-1], action_traj, delta_state_traj)
 
     for epoch in range(NUM_TRAINING_EPOCHS):
@@ -144,7 +185,9 @@ if __name__ == '__main__':
             init_state = np.array([0.01, 0.01, np.pi * 0.5, 0.1]) * rng.randn(4)
 
         ts, state_traj, action_traj = sim_rollout(sim, policy, NUM_DATAPOINTS_PER_EPOCH, DELTA_T, init_state)
+
         delta_state_traj = state_traj[1:] - state_traj[:-1]
+
 
         (pred_gp_mean,
          pred_gp_variance,

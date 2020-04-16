@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.special import kv, gamma
 import math
+import matplotlib.pyplot as plt
 
 
 def predict_squared_exponential_kernel(train_x, train_y, test_x, l, sigma_f, noise_sigma):
@@ -39,14 +40,21 @@ def get_pce_kernel(l, sigma_f, X, Y):
 
 def get_matern_kernel(nu, l, X, Y):
     kernel = np.zeros((X.shape[0], Y.shape[0]))
-    v = 0.3
-    gam = gamma(v-1)
-    bess = kv(1, v)
+    v = nu
+    gam = gamma(v)
+
+
     for iter1, i in enumerate(X):
         for iter2, j in enumerate(Y):
             r = np.abs(i-j)
             interm = (math.sqrt(2*v)*r)/l
-            kernel[iter1, iter2] = ((2**(1-v))*(interm**v) *bess *(interm))/gam
+            bess = kv(v,interm)
+
+            if interm != 0:
+                kernel[iter1, iter2] = ((2**(1-v))*(interm**v) *bess )/gam
+            else:
+                kernel[iter1, iter2] = 1
+
     return kernel
 
 def predict_matern_kernel(train_x, train_y, test_x, nu, l, noise_sigma):
