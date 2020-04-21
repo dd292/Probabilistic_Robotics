@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+import copy
 # Global variables
 NUM_TRAINING_EPOCHS = 12
 NUM_DATAPOINTS_PER_EPOCH = 50
@@ -132,58 +133,63 @@ def predict_gp(train_x, train_y, init_state, action_traj):
 
     inv_val= get_inv_val(train_x,train_y,get_pce_kernel_fast)
 
-    new_state= init_state
+    new_state= copy.deepcopy(init_state)
     for t in range(NUM_DATAPOINTS_PER_EPOCH):
+
         state= np.array(augmented_state(new_state,action_traj[t]))
-        last_state = new_state
-        mean_set= []
-        variance_set = []
+        mean_set= np.zeros((train_y.shape[1],))
+        variance_set = np.zeros((train_y.shape[1],))
         for k in range(train_y.shape[1]):
+
             K_star = get_pce_kernel_fast(train_x ,state.reshape((1,-1)),k)
-            mean =np.asscalar(K_star.T @ inv_val[k,:,:] @ train_y[:, k].reshape((-1,1)))
+            mean = K_star.T @ inv_val[k,:,:] @ train_y[:, k].reshape((-1,1))
             K_star_star = get_pce_kernel_fast(state.reshape((1, -1)), state.reshape((1, -1)), k)
 
-            variance= K_star_star- K_star.T @ inv_val[k,:,:] @ K_star
-            new_state[k]= last_state[k] + mean
-            mean_set.append(mean)
-            variance_set.append(variance)
-        #sys.exit()
-        pred_gp_mean[t]=mean_set
-        pred_gp_variance[t]= variance_set
-        rollout_gp[t]=new_state
+            variance = K_star_star - K_star.T @ inv_val[k,:,:] @ K_star
+            new_state[k] = new_state[k] + mean
+            mean_set[k] = mean
+            variance_set[k] = (variance)
+        pred_gp_mean[t] = mean_set
+        pred_gp_variance[t] = variance_set
+        rollout_gp[t] = new_state
 
     pred_gp_mean_trajs = np.zeros((NUM_TRAJ_SAMPLES, NUM_DATAPOINTS_PER_EPOCH, 4))
     pred_gp_variance_trajs = np.zeros((NUM_TRAJ_SAMPLES, NUM_DATAPOINTS_PER_EPOCH, 4))
     rollout_gp_trajs = np.zeros((NUM_TRAJ_SAMPLES, NUM_DATAPOINTS_PER_EPOCH, 4))
 
-
     for j in range(NUM_TRAJ_SAMPLES):
-        new_state = init_state
-        mean_traj=[]
-        variance_traj=[]
-        state_traj=[]
+
+        new_state = copy.deepcopy(init_state)
+        mean_traj = np.zeros ((NUM_DATAPOINTS_PER_EPOCH,train_y.shape[1]))
+        variance_traj = np.zeros ((NUM_DATAPOINTS_PER_EPOCH,train_y.shape[1]))
+        state_traj = np.zeros ((NUM_DATAPOINTS_PER_EPOCH,train_y.shape[1]))
+        #print("new_trajectory", '\n',init_state)
         for t in range(NUM_DATAPOINTS_PER_EPOCH):
-            state = np.array(augmented_state(new_state,action_traj[t]))
-            last_state = new_state
-            mean_set = []
-            variance_set = []
+
+            state = np.array(augmented_state(new_state , action_traj[t]))
+            mean_set = np.zeros((train_y.shape[1],))
+            variance_set = np.zeros((train_y.shape[1],))
+            #print('start_state', new_state, '\n')
             for k in range(train_y.shape[1]):
+
                 K_star = get_pce_kernel_fast(train_x, state.reshape((1, -1)), k)
-                mean = np.asscalar(K_star.T @ inv_val[k, :, :] @ train_y[:, k].reshape((-1, 1)))
+                mean = (K_star.T @ inv_val[k, :, :] @ train_y [:, k].reshape((-1, 1)))
                 K_star_star = get_pce_kernel_fast(state.reshape((1, -1)), state.reshape((1, -1)), k)
                 variance = K_star_star - K_star.T @ inv_val[k, :, :] @ K_star
                 s = rng.normal(mean, np.sqrt(variance))
-                new_state[k] = last_state[k] + s
-                mean_set.append(mean)
-                variance_set.append(variance)
-            mean_traj.append(mean_set)
-            variance_traj.append(variance_set)
-            state_traj.append(new_state)
+                new_state[k] = new_state[k] + s
+                mean_set[k] = (mean)
+                variance_set[k] = (variance)
+
+            mean_traj[t]= mean_set
+            variance_traj[t]= variance_set
+            state_traj[t]= new_state
+
+            #print('new_state', new_state, '\n')
+
         pred_gp_mean_trajs[j]= mean_traj
         pred_gp_variance_trajs[j]= variance_traj
         rollout_gp_trajs[j]= state_traj
-
-
 
     return pred_gp_mean, pred_gp_variance, rollout_gp, pred_gp_mean_trajs, pred_gp_variance_trajs, rollout_gp_trajs
 
