@@ -35,7 +35,7 @@ def get_pce_kernel(l, sigma_f, X, Y):
     kernel = np.zeros((X.shape[0], Y.shape[0]))
     for iter1, i in enumerate(X):
         for iter2, j in enumerate(Y):
-            kernel[iter1, iter2] = sigma_f * np.exp((np.linalg.norm(i - j) ** 2) / (-2 * l ** 2))
+            kernel[iter1, iter2] = sigma_f**2 * np.exp((np.linalg.norm(i - j) ** 2) / (-2 * l ** 2))
     return kernel
 
 def get_matern_kernel(nu, l, X, Y):

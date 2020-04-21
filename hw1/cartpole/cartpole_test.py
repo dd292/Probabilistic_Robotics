@@ -1,5 +1,5 @@
 import numpy as np
-
+import sys
 # Global variables
 NUM_TRAINING_EPOCHS = 12
 NUM_DATAPOINTS_PER_EPOCH = 50
@@ -65,41 +65,29 @@ def make_training_data(state_traj, action_traj, delta_state_traj):
     y = delta_state_traj
     return x, y
 
-def get_pce_kernel(X, X_prime):
-    #kernel = np.zeros((X.shape[0], X_prime.shape[0], X.shape[1]))
-    for iter1, i in enumerate(X):
-        for iter2, j in enumerate(Y):
-            kernel[iter1, iter2, :] = sigma_f * np.exp((np.linalg.norm(X-X_prime - j) ** 2) / (-2 * l ** 2))
-    return kernel
+def get_pce_kernel_slow(X, X_prime, Gp_number):
+    K= np.zeros((X.shape[0],X_prime.shape[0]))
+    sigma_f= kernel_scale_factors[Gp_number]
+    l= kernel_length_scales[:, Gp_number];
+    for iter1,i in enumerate(X):
+        for iter2,j in enumerate(X_prime):
+            K [iter1,iter2] = sigma_f*np.exp(-np.sum((i-j)**2/(2*l**2)))
+    #print(K.shape)
+    return K
+def get_pce_kernel_fast(X, X_prime, Gp_number):
+    K= np.zeros((X.shape[0],X_prime.shape[0]))
+    sigma_f= kernel_scale_factors[Gp_number]
+    l= kernel_length_scales[:, Gp_number];
+    for iter1,i in enumerate(X):
+        K [iter1,:] = sigma_f*np.exp(-np.sum((i-X_prime)**2/(2*l**2),axis=1))
+    #print(K.shape)
 
-def predict_squared_exponential_kernel(train_x, train_y):
-    """
-    :param train_x: a numpy array of size [N]
-    :param train_y: a numpy array of size [N]
-    :param test_x:  a numpy array of size [M]
-    :param l: length parameter of kernel. float
-    :param sigma_f: scale parameter of kernel. float
-    :param noise_sigma: noise standard deviation. float
-
-    :return: mean: a numpy array of size [M]
-             variance: a numpy array of size [M]
-
-        Note: only return the variances, not the covariances
-              i.e. the diagonal of the covariance matrix
-    """
-    l=1;
-    sigma_f= 1.0
-    noise_sigma= 0.35
-
-    K11 = get_pce_kernel(l, sigma_f, train_x, train_x)
-    K12 = get_pce_kernel(l, sigma_f, train_x, test_x)
-    K21 = get_pce_kernel(l, sigma_f, test_x, train_x)
-    K22 = get_pce_kernel(l, sigma_f, test_x, test_x)
-
-    inverted_val= np.linalg.inv(K11 + np.eye(K11.shape[0])*noise_sigma)
-    mean= np.matmul(K21, np.matmul(inverted_val, train_y))
-    variance = K22 - np.matmul(np.matmul(K21, inverted_val), K12)
-    return mean, np.diagonal(variance)
+    return K
+def get_inv_val(train_x,train_y,func):
+    inv_value = np.zeros((train_y.shape[1],train_x.shape[0],train_x.shape[0]))
+    for k in range(train_y.shape[1]):
+        inv_value[k,:] = np.linalg.inv(func(train_x,train_x,k)+ noise_sigmas[k]**2*np.eye(train_x.shape[0]))
+    return inv_value
 
 def predict_gp(train_x, train_y, init_state, action_traj):
     """
@@ -138,16 +126,64 @@ def predict_gp(train_x, train_y, init_state, action_traj):
     """
 
     # TODO: Compute these variables.
-    mean, variance = predict_squared_exponential_kernel(train_x, train_y)
-    fr
-
     pred_gp_mean = np.zeros((NUM_DATAPOINTS_PER_EPOCH, 4))
     pred_gp_variance = np.zeros((NUM_DATAPOINTS_PER_EPOCH, 4))
     rollout_gp = np.zeros((NUM_DATAPOINTS_PER_EPOCH, 4))
 
+    inv_val= get_inv_val(train_x,train_y,get_pce_kernel_fast)
+
+    new_state= init_state
+    for t in range(NUM_DATAPOINTS_PER_EPOCH):
+        state= np.array(augmented_state(new_state,action_traj[t]))
+        last_state = new_state
+        mean_set= []
+        variance_set = []
+        for k in range(train_y.shape[1]):
+            K_star = get_pce_kernel_fast(train_x ,state.reshape((1,-1)),k)
+            mean =np.asscalar(K_star.T @ inv_val[k,:,:] @ train_y[:, k].reshape((-1,1)))
+            K_star_star = get_pce_kernel_fast(state.reshape((1, -1)), state.reshape((1, -1)), k)
+
+            variance= K_star_star- K_star.T @ inv_val[k,:,:] @ K_star
+            new_state[k]= last_state[k] + mean
+            mean_set.append(mean)
+            variance_set.append(variance)
+        #sys.exit()
+        pred_gp_mean[t]=mean_set
+        pred_gp_variance[t]= variance_set
+        rollout_gp[t]=new_state
+
     pred_gp_mean_trajs = np.zeros((NUM_TRAJ_SAMPLES, NUM_DATAPOINTS_PER_EPOCH, 4))
     pred_gp_variance_trajs = np.zeros((NUM_TRAJ_SAMPLES, NUM_DATAPOINTS_PER_EPOCH, 4))
     rollout_gp_trajs = np.zeros((NUM_TRAJ_SAMPLES, NUM_DATAPOINTS_PER_EPOCH, 4))
+
+
+    for j in range(NUM_TRAJ_SAMPLES):
+        new_state = init_state
+        mean_traj=[]
+        variance_traj=[]
+        state_traj=[]
+        for t in range(NUM_DATAPOINTS_PER_EPOCH):
+            state = np.array(augmented_state(new_state,action_traj[t]))
+            last_state = new_state
+            mean_set = []
+            variance_set = []
+            for k in range(train_y.shape[1]):
+                K_star = get_pce_kernel_fast(train_x, state.reshape((1, -1)), k)
+                mean = np.asscalar(K_star.T @ inv_val[k, :, :] @ train_y[:, k].reshape((-1, 1)))
+                K_star_star = get_pce_kernel_fast(state.reshape((1, -1)), state.reshape((1, -1)), k)
+                variance = K_star_star - K_star.T @ inv_val[k, :, :] @ K_star
+                s = rng.normal(mean, np.sqrt(variance))
+                new_state[k] = last_state[k] + s
+                mean_set.append(mean)
+                variance_set.append(variance)
+            mean_traj.append(mean_set)
+            variance_traj.append(variance_set)
+            state_traj.append(new_state)
+        pred_gp_mean_trajs[j]= mean_traj
+        pred_gp_variance_trajs[j]= variance_traj
+        rollout_gp_trajs[j]= state_traj
+
+
 
     return pred_gp_mean, pred_gp_variance, rollout_gp, pred_gp_mean_trajs, pred_gp_variance_trajs, rollout_gp_trajs
 
