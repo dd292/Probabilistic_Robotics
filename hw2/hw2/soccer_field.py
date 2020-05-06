@@ -55,16 +55,29 @@ class Field:
         prev_x, prev_y, prev_theta = x.ravel()
         rot1, trans, rot2 = u.ravel()
         # YOUR IMPLEMENTATION HERE
+        return np.array([[1, 0, -trans*np.sin(prev_theta+rot1)],\
+                  [0, 1, trans*np.cos(prev_theta+rot1)],\
+                  [0, 0, 1]])
 
     def V(self, x, u):
         """Compute the Jacobian of the dynamics with respect to the control."""
         prev_x, prev_y, prev_theta = x.ravel()
         rot1, trans, rot2 = u.ravel()
+        return np.array([[-trans*np.sin(prev_theta+rot1), np.cos(prev_theta+rot1), 0],\
+                         [trans*np.cos(prev_theta+rot1), np.sin(prev_theta+rot1), 0],\
+                         [1, 0, 1]])
         # YOUR IMPLEMENTATION HERE
 
     def H(self, x, marker_id):
         """Compute the Jacobian of the observation with respect to the state."""
         prev_x, prev_y, prev_theta = x.ravel()
+        mx= self.MARKER_X_POS[marker_id]
+        my= self.MARKER_Y_POS[marker_id]
+        dx= mx-prev_x
+        dy= my-prev_y
+
+        arctan_derv= 1/(1+(dy/dx)**2)
+        return np.array([arctan_derv * dy*(dx**-2), - arctan_derv/ dx, -1])
         # YOUR IMPLEMENTATION HERE
 
     def forward(self, x, u):
