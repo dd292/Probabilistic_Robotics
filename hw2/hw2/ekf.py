@@ -30,25 +30,25 @@ class ExtendedKalmanFilter:
         """
         # YOUR IMPLEMENTATION HERE
         # PREDICTION STEP
+
         G = env.G(self.mu, u)
         V = env.V(self.mu, u)
         M = env.noise_from_motion(u, self.alphas)
 
         predicted_mean = env.forward(self.mu, u)
         predicted_sigma = G @ self.sigma @ G.T + V @ M @ V.T
-        self.mu= predicted_mean
-        self.sigma= predicted_sigma
+
         #CORRECTION STEP
 
         predicted_measurement_mean = env.observe(predicted_mean, marker_id)
         H = env.H(predicted_mean, marker_id).reshape((1,-1))
-        pred_measurement_cov = H @ predicted_sigma @ H.T + self.beta
+
+        pred_measurement_cov = H @ predicted_sigma @ H.T + np.diag(self.beta)
+
         kalamn_gain= predicted_sigma @ H.T @ np.linalg.inv(pred_measurement_cov)
 
-        self.mu= predicted_mean + kalamn_gain @ (z-predicted_measurement_mean)
+        self.mu= predicted_mean + kalamn_gain @ (minimized_angle(z-predicted_measurement_mean))
         interm = kalamn_gain @ H
 
-        self.sigma= (np.eye((interm.shape[0]))- interm) @ predicted_sigma
-        #sys.exit()
-        #x= input()
+        self.sigma= (np.eye(interm.shape[0])- interm) @ predicted_sigma
         return self.mu, self.sigma

@@ -77,7 +77,8 @@ class Field:
         dy= my-prev_y
 
         arctan_derv= 1/(1+(dy/dx)**2)
-        return np.array([arctan_derv * dy*(dx**-2), - arctan_derv/ dx, -1])
+        return np.array([arctan_derv * dy*(dx**-2),  -arctan_derv* dx**-1,  -1])
+
         # YOUR IMPLEMENTATION HERE
 
     def forward(self, x, u):
