@@ -74,7 +74,7 @@ def localize(env, policy, filt, x0, num_steps, plot=False):
     if plot:
         plt.show(block=True)
 
-    return mean_position_error, anees
+    return position_errors
 
 
 def setup_parser():
@@ -105,94 +105,41 @@ def setup_parser():
 
     return parser
 
-def one_run(filter_type,num_steps, data_factor=1, filter_factor=1, num_particles=100,seed= None):
 
-    if seed is not None:
-        np.random.seed(seed)
+if __name__ == '__main__':
+    args = setup_parser().parse_args()
+    print('Data factor:', args.data_factor)
+    print('Filter factor:', args.filter_factor)
+
+    if args.seed is not None:
+        np.random.seed(args.seed)
 
     alphas = np.array([0.05**2, 0.005**2, 0.1**2, 0.01**2])
     beta = np.diag([np.deg2rad(5)**2])
 
-    env = Field(data_factor * alphas, data_factor * beta)
+    env = Field(args.data_factor * alphas, args.data_factor * beta)
     policy = policies.OpenLoopRectanglePolicy()
 
     initial_mean = np.array([180, 50, 0]).reshape((-1, 1))
     initial_cov = np.diag([10, 10, 1])
 
-    if filter_type == 'none':
+    if args.filter_type == 'none':
         filt = None
-    elif filter_type == 'ekf':
+    elif args.filter_type == 'ekf':
         filt = ExtendedKalmanFilter(
             initial_mean,
             initial_cov,
-            filter_factor * alphas,
-            filter_factor * beta
+            args.filter_factor * alphas,
+            args.filter_factor * beta
         )
-    elif filter_type == 'pf':
+    elif args.filter_type == 'pf':
         filt = ParticleFilter(
             initial_mean,
             initial_cov,
-            num_particles,
-            filter_factor * alphas,
-            filter_factor * beta
+            args.num_particles,
+            args.filter_factor * alphas,
+            args.filter_factor * beta
         )
 
     # You may want to edit this line to run multiple localization experiments.
-
-    #mean_position_error= localize(env, policy, filt, initial_mean, num_steps,False)
-    mean_position_error,anees= localize(env, policy, filt, initial_mean, num_steps,False)
-    return mean_position_error, anees
-
-def multiple_runs():
-    filter_type='pf'
-    mean_position_errors =np.zeros((6,3,2))
-    # mean_position_errors =np.zeros((2,10))
-    #mean_position_errors =np.zeros((6,10))
-    r= np.array([1/64, 1/16, 1/4, 4, 16, 64])
-    par=np.array([20,50,500])
-    for iter1,i in enumerate(r):
-        for k in range(3):
-        #for j in range(10):
-            #mean_position_errors[iter1,j] = one_run(filter_type, 200, i, i,  num_particles=100,seed=None)
-            #mean_position_errors[:,iter1] = one_run(filter_type, 200, i, i,  num_particles=100,seed=0)
-            mean_position_errors[iter1,k,:] = one_run(filter_type, 200, i, i,  num_particles= par[k],seed=0)
-    np.save("mean_Anees_particles_default.npy",mean_position_errors)
-
-if __name__ == '__main__':
-    multiple_runs()
-    # args = setup_parser().parse_args()
-    # print('Data factor:', args.data_factor)
-    # print('Filter factor:', args.filter_factor)
-    #
-    # if args.seed is not None:
-    #     np.random.seed(args.seed)
-    #
-    # alphas = np.array([0.05**2, 0.005**2, 0.1**2, 0.01**2])
-    # beta = np.diag([np.deg2rad(5)**2])
-    #
-    # env = Field(args.data_factor * alphas, args.data_factor * beta)
-    # policy = policies.OpenLoopRectanglePolicy()
-    #
-    # initial_mean = np.array([180, 50, 0]).reshape((-1, 1))
-    # initial_cov = np.diag([10, 10, 1])
-    #
-    # if args.filter_type == 'none':
-    #     filt = None
-    # elif args.filter_type == 'ekf':
-    #     filt = ExtendedKalmanFilter(
-    #         initial_mean,
-    #         initial_cov,
-    #         args.filter_factor * alphas,
-    #         args.filter_factor * beta
-    #     )
-    # elif args.filter_type == 'pf':
-    #     filt = ParticleFilter(
-    #         initial_mean,
-    #         initial_cov,
-    #         args.num_particles,
-    #         args.filter_factor * alphas,
-    #         args.filter_factor * beta
-    #     )
-    #
-    # # You may want to edit this line to run multiple localization experiments.
-    # localize(env, policy, filt, initial_mean, args.num_steps, args.plot)
+    localize(env, policy, filt, initial_mean, args.num_steps, args.plot)
