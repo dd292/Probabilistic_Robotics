@@ -37,14 +37,14 @@ if __name__ == "__main__":
     times=[]
     costs=[]
     for i in range(10):
-            
-        start= np.array([321.0, 148.0])
-        goal= np.array([106.0,202.0])
-        planning_env = MapEnvironment('map2.txt',start ,goal)
+
+        start= np.array([40 ,100, 4.71]).reshape((3,1))
+        goal= np.array([350, 150, 1.57]).reshape((3,1))
+        planning_env = CarEnvironment('car_map.txt',start ,goal)
         # Next setup the planner
         bias= 0.05
         eta= 0.5
-        plan='rrtstar'
+        plan='nonholrrt'
         if plan == 'rrt':
             planner = RRTPlanner(planning_env, bias, eta)
         elif plan == 'rrtstar':
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         else:
             print('Unknown planner option')
             exit(0)
-            
+
         cost, plan_time,goal_bool= main(planning_env, planner, start, goal, plan)
         if (not goal_bool):
             i-=1

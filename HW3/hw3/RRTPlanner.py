@@ -21,20 +21,20 @@ class RRTPlanner(object):
         # Start with adding the start configuration to the tree.
         self.tree.AddVertex(start_config)
         for i in range(self.max_iter):
-            
-           
+
+
             r= self.sample(goal_config)
             vid,vertex = self.tree.GetNearestVertex(r)
             if (r.ravel()==vertex).all():
                 continue
-            
+
             new= self.extend(vertex,r)
             if (not self.env.edge_validity_checker(vertex.reshape((2,1)),new.reshape((2,1)))):
                 continue
             #print(news)
-            
-            
-            
+
+
+
             new_cost= self.tree.costs[vid]+self.env.compute_distance(vertex, new)
             nid= self.tree.AddVertex(new,new_cost)
             self.tree.AddEdge(vid,nid)
@@ -48,7 +48,7 @@ class RRTPlanner(object):
                 break
         plan=np.asarray(plan)
         plan= plan[::-1]
-        
+
         cost = new_cost
         plan_time = time.time() - plan_time
 
@@ -68,7 +68,7 @@ class RRTPlanner(object):
         for i in range(2):
             point[i]= round(point[i],2)
         return point
-          
+
 
     def sample(self, goal):
         # Sample random point from map
