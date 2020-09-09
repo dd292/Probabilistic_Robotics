@@ -1,2 +1,2 @@
 # Probabilisti_Robotics
-Implementation of probabilistic roboticsc algorithms
+Implementation of probabilistic robotics algorithms
